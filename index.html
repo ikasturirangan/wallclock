@@ -60,8 +60,11 @@ margin-right: 1.6rem; vertical-align: top;
 #mins { font-size: 30rem; font-weight: 700; letter-spacing: -0.03em; }
 #mins.now { font-size: 24rem; }          /* the word is much wider than the digits */
 #unit { font-size: 5rem; margin-left: 1.5rem; }
-#later { position: absolute; right: 0; bottom: 1.5rem; text-align: right; }
-#laterlabel { font-size: 2.4rem; }
+/* Right column: "ARRIVE JAY ST" group on top, a hairline, then "NEXT TRAINS". */
+.label { font-size: 1.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8e8e93; font-weight: 400; }
+#trip .label { position: absolute; right: 0; top: -2.3rem; line-height: 2rem; }
+#later { position: absolute; right: 0; bottom: 0.4rem; text-align: right; min-width: 28rem; border-top: 1px solid #2c2c2e; padding-top: 1rem; }
+#laterlabel { line-height: 1.6; }
 #latervals { font-size: 7rem; font-weight: 200; line-height: 1.15; }
 #latervals small { font-size: 2.6rem; color: #8e8e93; margin-left: 0.6rem; }
 #latervals i {
@@ -95,9 +98,10 @@ padding: 1rem 2.4rem; text-decoration: none;
    arrival under the station, the "then" list as one row above the big minutes. */
 .tall #top { left: 6vw; right: 6vw; top: 4vh; height: 37vh; }
 .tall #weather { top: auto; bottom: 0; }
-.tall #wrow { height: 11rem; }
-.tall #wicon { width: 9.5rem; height: 9.5rem; }
-.tall #temp { font-size: 11rem; }
+.tall #time { font-size: 14rem; }
+.tall #wrow { height: 10rem; }
+.tall #wicon { width: 8.5rem; height: 8.5rem; }
+.tall #temp { font-size: 10rem; }
 .tall #rule { left: 6vw; right: 6vw; top: 47vh; }
 .tall #vibe { top: 47vh; }
 .tall #train { left: 6vw; right: 6vw; top: 50vh; }
@@ -131,7 +135,7 @@ padding: 1rem 2.4rem; text-decoration: none;
 <div id="trip"></div>
 <div id="next"><span id="mins">--</span><span id="unit" class="dim">min</span></div>
 <div id="later">
-<div id="laterlabel" class="dim">then</div>
+<div id="laterlabel" class="label">Next trains</div>
 <div id="latervals">&nbsp;</div>
 </div>
 </div>
@@ -267,7 +271,7 @@ var tripHTML = '';
 function drawJourney(now) {
 var e = DEST_STOP && data.trips ? etas(now) : [], html = '';
 if (e.length) {
-html = '<div class="t1">' + CAP + (e[0].eta ? clockText(e[0].eta) + '<small>' +
+html = '<div class="label">Arrive ' + DEST_NAME + '</div><div class="t1">' + CAP + (e[0].eta ? clockText(e[0].eta) + '<small>' +
 (new Date(e[0].eta * 1000).getHours() < 12 ? 'AM' : 'PM') + '</small>' : '--') + '</div>' +
 '<div class="row">' + (e.length > 1 ? '<span class="t2">' + CAP + (e[1].eta ? clockText(e[1].eta) : '--') + '</span>' : '') +
 (e[0].eta ? '<div class="bar">' + barHTML(e[0], now) + '</div>' : '') + '</div>';
@@ -722,6 +726,7 @@ var POLL_SEC  = 15;            // MTA republishes each feed every ~5-10s
 // connection (the R, or the N late nights); a train from home that reaches
 // DEST_STOP itself needs no change.
 var DEST_STOP = 'R29N';        // Jay St-MetroTech, Manhattan-bound; '' hides the estimate
+var DEST_NAME = 'Jay St';      // shown as "ARRIVE JAY ST" above the arrival times
 var XFER_STOP = 'R31N';        // Atlantic Av-Barclays Ctr
 var XFER_MIN  = 1;             // minutes to change trains (cross-platform there)
 var ETA_MIN   = 2;             // a train closer than this is skipped for the estimate
