@@ -21,7 +21,7 @@ cursor: default;
 }
 .dim { color: #8e8e93; }
 #sky { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 0; }
-#top, #rule, #vibe, #train, #call, #status { z-index: 1; }
+#top, #rule, #vibe, #alert, #train, #call, #status { z-index: 1; }
 #top { position: absolute; left: 5vw; right: 5vw; top: 5vh; height: 36vh; }
 #clock { position: absolute; left: 0; top: 0; }
 #time { font-size: 15rem; line-height: 1; font-weight: 100; letter-spacing: -0.02em; }
@@ -44,8 +44,18 @@ font-family: Helvetica, Arial, sans-serif; font-weight: bold; font-size: 3.8rem;
 margin-right: 1.6rem; vertical-align: top;
 }
 #vibe { position: absolute; left: 0; right: 0; top: 45vh; margin-top: -4rem; height: 3.2rem; line-height: 3.2rem; text-align: center; font-size: 2.3rem; font-style: italic; color: #aeaeb2; }
+/* A service alert that affects the commute takes the vibe line's place. */
+#alert { position: absolute; left: 5vw; right: 5vw; top: 45vh; margin-top: -4rem; height: 3.2rem; line-height: 3.2rem; text-align: center; font-size: 2.2rem; color: #ffd60a; white-space: nowrap; overflow: hidden; display: none; }
+#alert span { display: inline-block; }
+#alert.long { text-align: left; }
+#alert.cut { text-align: left; text-overflow: ellipsis; }
+#alert.cut span { display: inline; }
+#alert svg { width: 2.4rem; height: 2.4rem; vertical-align: -0.4rem; margin-right: 1rem; }
+#alert i { display: inline-block; width: 2.6rem; height: 2.6rem; line-height: 2.6rem; border-radius: 50%; text-align: center; font-style: normal; font-weight: bold; font-family: Helvetica, Arial, sans-serif; font-size: 1.7rem; margin: 0 0.3rem; vertical-align: 0.1rem; }
 #mins.missed { color: #636366; }
 #trip { position: absolute; right: 0; top: 0; text-align: right; white-space: nowrap; }
+#trip .note { position: absolute; right: 0; top: -2.3rem; line-height: 2rem; font-size: 1.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #e5e5ea; white-space: nowrap; }
+#trip .note svg { width: 1.9rem; height: 1.9rem; vertical-align: -0.35rem; margin-right: 0.6rem; }
 #trip .t1 { font-size: 8.5rem; line-height: 1; font-weight: 200; letter-spacing: -0.02em; }
 #trip .t1 svg { width: 6rem; height: 6rem; margin-right: 1.6rem; vertical-align: -0.2rem; }
 #trip .t1 small { font-size: 2.6rem; color: #8e8e93; margin-left: 0.6rem; letter-spacing: 0; }
@@ -54,6 +64,7 @@ margin-right: 1.6rem; vertical-align: top;
 #trip .t2 + .bar { right: 13.5rem; }
 #trip .bar:before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #2c2c2e; }
 #trip .bar i { position: absolute; top: 0; bottom: 0; border-radius: 0.3rem; }
+#trip .bar i.walk { top: 35%; bottom: 35%; background: #8e8e93; }
 #trip .t2 { position: absolute; right: 0; top: 0; line-height: 3.6rem; font-size: 3.2rem; font-weight: 300; color: #8e8e93; }
 #trip .t2 svg { width: 3.2rem; height: 3.2rem; margin-right: 0.8rem; vertical-align: -0.5rem; opacity: 0.55; }
 #next { position: absolute; left: 0; bottom: 0; white-space: nowrap; line-height: 0.8; }
@@ -103,6 +114,7 @@ padding: 1rem 2.4rem; text-decoration: none;
 .tall #temp { font-size: 10rem; }
 .tall #rule { left: 6vw; right: 6vw; top: 47vh; }
 .tall #vibe { top: 47vh; }
+.tall #alert { left: 6vw; right: 6vw; top: 47vh; }
 .tall #train { left: 6vw; right: 6vw; top: 50vh; }
 .tall #status { left: 6vw; }
 .tall #trip { top: 8rem; }
@@ -129,6 +141,7 @@ padding: 1rem 2.4rem; text-decoration: none;
 </div>
 <div id="rule"></div>
 <div id="vibe"></div>
+<div id="alert"></div>
 <div id="train">
 <div id="line"><span id="bullet">D</span><span id="where" class="dim">&nbsp;</span></div>
 <div id="trip"></div>
@@ -149,7 +162,9 @@ var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'S
 var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
 'August', 'September', 'October', 'November', 'December'];
 var COLORS = { B: '#ff6319', D: '#ff6319', F: '#ff6319', M: '#ff6319',
-N: '#fccc0a', Q: '#fccc0a', R: '#fccc0a', W: '#fccc0a' };
+N: '#fccc0a', Q: '#fccc0a', R: '#fccc0a', W: '#fccc0a',
+1: '#ee352e', 2: '#ee352e', 3: '#ee352e', 4: '#00933c', 5: '#00933c', 6: '#00933c',
+A: '#0039a6', C: '#0039a6', E: '#0039a6', G: '#6cbe45', J: '#996633', Z: '#996633' };
 function el(id) { return document.getElementById(id); }
 function set(id, text) { var e = el(id); if (e.textContent !== text) { e.textContent = text; } }
 // Every size is in rem, and 1rem is set here so the layout fits any screen.
@@ -218,22 +233,37 @@ function clockText(sec) {
 var d = new Date(sec * 1000), h = d.getHours() % 12 || 12, m = d.getMinutes();
 return h + ':' + (m < 10 ? '0' : '') + m;
 }
-// Arrival at DEST_STOP for one train from home: directly if it stops there,
-// otherwise via the connection at XFER_STOP that arrives soonest, using each
-// trip's own predictions. eta is 0 when no connection is predicted yet.
+// Earliest arrival at Jay St for one train from home, over every way in TRIP,
+// using each trip's own predictions. eta is 0 when no way is predicted yet.
+// The legs (change, leave, arrive) are kept for the journey bar.
 function etaFor(t) {
-var leg = { board: t.at[STOP_ID].d, route: t.route, eta: 0 };
-if (t.at[DEST_STOP]) { leg.eta = t.at[DEST_STOP].a; return leg; }
-var ready = t.at[XFER_STOP].a + XFER_MIN * 60, best = null, j, u;
+var best = { board: t.at[STOP_ID].d, route: t.route, eta: 0 }, k, o, j, u, s, ready, walk, end;
+for (k = 0; k < TRIP.length; k++) {
+o = TRIP[k]; walk = (o.walk || 0) * 60;
+if (!o.at) {
+if (t.at[o.to] && (!best.eta || t.at[o.to].a + walk < best.eta)) {
+best = { board: best.board, route: t.route, arrive: t.at[o.to].a, eta: t.at[o.to].a + walk, note: o.note };
+}
+continue;
+}
+if (!t.at[o.at]) { continue; }
+ready = t.at[o.at].a + (o.change || 0) * 60;
 for (j = 0; j < data.trips.length; j++) {
 u = data.trips[j];
-if (u === t || !u.at[XFER_STOP] || !u.at[DEST_STOP]) { continue; }
-if (u.at[XFER_STOP].d < ready || u.at[DEST_STOP].a <= u.at[XFER_STOP].d) { continue; }
-if (!best || u.at[DEST_STOP].a < best.at[DEST_STOP].a) { best = u; }
+if (u === t || !u.at[o.from] || !u.at[o.to]) { continue; }
+s = u.at[o.from].d;
+if (s < ready || u.at[o.to].a <= s) { continue; }
+end = u.at[o.to].a + walk;
+if (!best.eta || end < best.eta) {
+best = { board: best.board, route: t.route, change: t.at[o.at].a, leave: s, route2: u.route, arrive: u.at[o.to].a, eta: end, note: o.note };
 }
-leg.change = t.at[XFER_STOP].a;
-if (best) { leg.eta = best.at[DEST_STOP].a; leg.leave = best.at[XFER_STOP].d; leg.route2 = best.route; }
-return leg;
+}
+}
+return best;
+}
+function reaches(t) {           // does this train from home lead anywhere in TRIP?
+for (var k = 0; k < TRIP.length; k++) { if (t.at[TRIP[k].at || TRIP[k].to]) { return true; } }
+return false;
 }
 // Arrival times for the next two trains from home that are still at least
 // ETA_MIN minutes away; under that, the estimate moves on to the next train.
@@ -241,36 +271,45 @@ function etas(now) {
 var home = [], out = [], i, t;
 for (i = 0; i < data.trips.length; i++) {
 t = data.trips[i];
-if (t.at[STOP_ID] && (t.at[DEST_STOP] || t.at[XFER_STOP]) && t.at[STOP_ID].d - now >= ETA_MIN * 60) { home.push(t); }
+if (t.at[STOP_ID] && reaches(t) && t.at[STOP_ID].d - now >= ETA_MIN * 60) { home.push(t); }
 }
 home.sort(function (a, b) { return a.at[STOP_ID].d - b.at[STOP_ID].d; });
 for (i = 0; i < home.length && i < 2; i++) { out.push(etaFor(home[i])); }
 return out;
 }
+// Small walking figure for the "Walk from ..." note.
+var WALKER = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+'<circle cx="13" cy="4" r="1.6" fill="currentColor"/><path d="M10 22l2.5-7 2.5 3v4M12.5 15l.8-6-3.3 2v3M13.3 9l2.2 3h3"/></g></svg>';
 // Mortarboard, drawn like the weather icons, so the time reads as "at uni".
 var CAP = '<svg viewBox="0 0 100 100"><path fill="#aeaeb2" d="M26 50v15c0 8 11 13 24 13s24-5 24-13V50L50 61z"/>' +
 '<path fill="#e5e5ea" d="M50 22l44 19-44 19L6 41z"/>' +
 '<path fill="none" stroke="#ffd60a" stroke-width="3" stroke-linecap="round" d="M50 41l32 6v18"/>' +
 '<circle cx="82" cy="69" r="4.5" fill="#ffd60a"/></svg>';
 // Journey bar from now to arrival: grey until the train leaves, then each
-// ride in its line's colour, with the change at Atlantic as the gap between.
+// ride in its line's colour with the change as the gap between, and a thin
+// line for any walk at the end.
 function barHTML(leg, now) {
 var span = leg.eta - now, out = '', parts = [[now, leg.board, '#3a3a3c']], i, a, b;
 if (span <= 0) { return ''; }
-if (leg.leave) { parts.push([leg.board, leg.change, COLORS[leg.route] || '#8e8e93'], [leg.leave, leg.eta, COLORS[leg.route2] || '#8e8e93']); }
-else { parts.push([leg.board, leg.eta, COLORS[leg.route] || '#8e8e93']); }
+if (leg.leave) { parts.push([leg.board, leg.change, COLORS[leg.route] || '#8e8e93'], [leg.leave, leg.arrive, COLORS[leg.route2] || '#8e8e93']); }
+else { parts.push([leg.board, leg.arrive, COLORS[leg.route] || '#8e8e93']); }
+if (leg.eta > leg.arrive) { parts.push([leg.arrive, leg.eta, 'walk']); }
 for (i = 0; i < parts.length; i++) {
 a = Math.round((parts[i][0] - now) / span * 200) / 2;
 b = Math.round((parts[i][1] - now) / span * 200) / 2;
-if (b - a > 0.6) { out += '<i style="left:' + a + '%;width:' + (b - a - 0.6) + '%;background:' + parts[i][2] + '"></i>'; }
+if (b - a > 0.6) {
+out += '<i ' + (parts[i][2] === 'walk' ? 'class="walk" ' : '') + 'style="left:' + a + '%;width:' + (b - a - 0.6) + '%' +
+(parts[i][2] === 'walk' ? '' : ';background:' + parts[i][2]) + '"></i>';
+}
 }
 return out;
 }
 var tripHTML = '';
 function drawJourney(now) {
-var e = DEST_STOP && data.trips ? etas(now) : [], html = '';
+var e = TRIP.length && data.trips ? etas(now) : [], html = '';
 if (e.length) {
-html = '<div class="t1">' + CAP + (e[0].eta ? clockText(e[0].eta) + '<small>' +
+html = (e[0].eta && e[0].note ? '<div class="note">' + (e[0].eta > e[0].arrive ? WALKER : '') + e[0].note + '</div>' : '') +
+'<div class="t1">' + CAP + (e[0].eta ? clockText(e[0].eta) + '<small>' +
 (new Date(e[0].eta * 1000).getHours() < 12 ? 'AM' : 'PM') + '</small>' : '--') + '</div>' +
 '<div class="row">' + (e.length > 1 ? '<span class="t2">' + CAP + (e[1].eta ? clockText(e[1].eta) : '--') + '</span>' : '') +
 (e[0].eta ? '<div class="bar">' + barHTML(e[0], now) + '</div>' : '') + '</div>';
@@ -278,6 +317,7 @@ html = '<div class="t1">' + CAP + (e[0].eta ? clockText(e[0].eta) + '<small>' +
 if (html !== tripHTML) { el('trip').innerHTML = html; tripHTML = html; }
 }
 function drawTrain() {
+drawAlert();
 var fresh = data && data.trips && (Date.now() - gotAt) < 90000;
 if (!fresh) {
 set('mins', '--'); set('unit', 'min'); el('unit').style.display = '';
@@ -716,21 +756,36 @@ var FUN       = true;
 var ANIMATE   = true;
 var CALL_HOME = '';
 var LAT = 40.6463, LON = -73.9944;
-var FEED_BASE = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-';
-var MAIN_FEED = 'bdfm';
-var EXTRA_FEEDS = ['nqrw'];
+var FEED_BASE = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs';
+var MAIN_FEED = '-bdfm';
+var EXTRA_FEEDS = ['-nqrw'];
 var POLL_SEC  = 15;            // MTA republishes each feed every ~5-10s
-// Arrival times at DEST_STOP for the next two trains, top right of the train
-// panel. Any train that stops at XFER_STOP and then DEST_STOP counts as the
-// connection (the R, or the N late nights); a train from home that reaches
-// DEST_STOP itself needs no change.
-var DEST_STOP = 'R29N';        // Jay St-MetroTech, Manhattan-bound; '' hides the estimate
-var XFER_STOP = 'R31N';        // Atlantic Av-Barclays Ctr
-var XFER_MIN  = 1;             // minutes to change trains (cross-platform there)
+// Ways to get to Jay St-MetroTech, for the arrival times top right of the
+// train panel. Every way is tried for each train from home and the earliest
+// arrival wins, so an R outage or a reroute simply picks another way.
+//   to: stop where you get off            walk: minutes from there to Jay St
+//   at: stop where you leave the train from home (leave out to stay on it)
+//   from: stop the connection leaves from  change: minutes to get there
+//   note: shown above the arrival time when this way is the one to take
+// Any train calling at from and then to counts (the R, or the N late nights).
+var TRIP = [
+{ to: 'R29N', note: 'Stay on to Jay St' },              // the train from home stops at Jay St (R/N platform)
+{ to: 'A41N', note: 'Stay on to Jay St' },              // or is rerouted to Jay St's A/C/F platform
+{ to: 'R30N', walk: 7, note: 'Walk from DeKalb Av' },   // a local D stops at DeKalb Av: get off and walk
+{ at: 'R31N', from: 'R31N', change: 1, to: 'R29N' }           // R or N across the platform at Atlantic Av
+];
 var ETA_MIN   = 2;             // a train closer than this is skipped for the estimate
-var WANT = {};
+// Service alerts for these lines show in place of the vibe line, when they
+// touch one of the stops above (Manhattan-bound) or are a live problem.
+var ALERT_ROUTES = { D: 1, R: 1, N: 1 };
+var ALERT_FEED = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json';
+var WANT = {}, ALERT_STOPS = {}, wk;
 WANT[STOP_ID] = 1;
-if (DEST_STOP) { WANT[DEST_STOP] = 1; WANT[XFER_STOP] = 1; }
+for (wk = 0; wk < TRIP.length; wk++) {
+WANT[TRIP[wk].to] = 1;
+if (TRIP[wk].at) { WANT[TRIP[wk].at] = 1; WANT[TRIP[wk].from] = 1; }
+}
+for (wk in WANT) { if (WANT.hasOwnProperty(wk)) { ALERT_STOPS[wk.slice(0, -1)] = 1; } }
 data = { trips: null, weather: null, walkMin: WALK_MIN, fun: FUN, animate: ANIMATE,
 callHome: CALL_HOME, stop: STOP_NAME, direction: DIRECTION };
 var trainErr = '';
@@ -833,6 +888,97 @@ function (why) { if (isMain) { mainErr = why; } done(); });
 document.addEventListener('visibilitychange', function () {
 if (document.hidden) { clearTimeout(trainTimer); } else { loadTrains(); }
 });
+// Service alerts. An alert counts when it is active now, names one of
+// ALERT_ROUTES, and either lists one of our stops (Manhattan-bound, which is
+// direction 0) among its affected stations or, listing none, is a live
+// problem such as delays or a suspension. Planned work elsewhere on the line
+// is left out so the line stays quiet unless the commute is affected.
+var alerts = [], alertsAt = 0, alertHTML = '';
+var LIVE = /Delay|Suspend|Reroute|Reduced|No Scheduled/;
+// Live alerts name only the line, so their direction is read from the words:
+// these mean away from Manhattan, which our trip never rides.
+var AWAY = /\b(downtown|coney island-bound|bay ridge-bound|brooklyn-bound|southbound)\b/i;
+function alertEnglish(a) {
+var tr = (a.header_text || {}).translation || [], s = '', i;
+for (i = 0; i < tr.length; i++) { if (tr[i].language === 'en') { s = tr[i].text; } }
+return String(s || '').replace(/\s+/g, ' ');
+}
+var WARN = '<svg viewBox="0 0 24 24"><path fill="#ffd60a" d="M12 2L1 21h22z"/><path fill="#000" d="M11 9h2v6h-2zm0 8h2v2h-2z"/></svg>';
+function alertMatters(a, now) {
+var m = a['transit_realtime.mercury_alert'] || {}, ps = a.active_period || [], ie = a.informed_entity || [];
+var st = m.affected_stations || [], open = false, ours = false, i;
+for (i = 0; i < ps.length; i++) { if ((ps[i].start || 0) <= now && (!ps[i].end || ps[i].end >= now)) { open = true; } }
+for (i = 0; i < ie.length; i++) { if (ALERT_ROUTES[ie[i].route_id]) { ours = true; } }
+if (!open || !ours) { return false; }
+if (!st.length) {
+var words = alertEnglish(a);
+return LIVE.test(m.alert_type || '') && !(AWAY.test(words) && !/both directions/i.test(words));
+}
+for (i = 0; i < st.length; i++) {
+if (ALERT_ROUTES[st[i].route_id] && ALERT_STOPS[st[i].stop_id] && !st[i].direction_id) { return true; }
+}
+return false;
+}
+function alertLine(a) {          // English header, escaped, with [D]-style tokens drawn as bullets
+var s = alertEnglish(a).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+return s.replace(/\[([A-Z0-9])\]/g, function (x, r) { return bulletHTML(r); }).replace(/\[[^\]]*\]/g, '');
+}
+function loadAlerts() {
+if (document.hidden) { return; }
+var x = new XMLHttpRequest();
+x.open('GET', ALERT_FEED, true);
+x.timeout = 20000;
+x.onload = function () {
+if (x.status !== 200) { return; }
+try {
+var es = JSON.parse(x.responseText).entity || [], now = Date.now() / 1000, live = [], planned = [], i, a;
+for (i = 0; i < es.length; i++) {
+a = es[i].alert;
+if (a && alertMatters(a, now)) { (LIVE.test((a['transit_realtime.mercury_alert'] || {}).alert_type || '') ? live : planned).push(alertLine(a)); }
+}
+var next = live.concat(planned), changed = next.join('|') !== alerts.join('|');
+alerts = next; alertsAt = Date.now();
+if (changed) { alertIdx = 0; showAlert(); }
+} catch (e) {}
+};
+x.send();
+}
+// Shows one alert at a time. One that is too long for the line pauses, glides
+// to its end, pauses, then moves on (or repeats); a short one stays for 8s.
+// With Reduce Motion it is cut off with an ellipsis instead of moving.
+var alertIdx = 0, alertTimer = 0;
+function slide(e, px, secs) {
+var tf = 'translateX(' + px + 'px)', tr = secs ? 'transform ' + secs + 's linear' : 'none';
+e.style.webkitTransition = secs ? '-webkit-transform ' + secs + 's linear' : 'none';
+e.style.transition = tr;
+e.style.webkitTransform = tf;
+e.style.transform = tf;
+}
+function showAlert() {
+clearTimeout(alertTimer);
+var box = el('alert'), html = alerts.length ? WARN + alerts[alertIdx % alerts.length] : '';
+if (html !== alertHTML) {
+box.innerHTML = html ? '<span>' + html + '</span>' : '';
+box.style.display = html ? 'block' : 'none';
+el('vibe').style.visibility = html ? 'hidden' : '';
+alertHTML = html;
+}
+if (!html) { return; }
+var inner = box.firstChild, over = inner.offsetWidth - box.clientWidth;
+var rem = parseFloat(document.documentElement.style.fontSize) || window.innerWidth / 100;
+box.className = over > 0 ? (still ? 'cut' : 'long') : '';
+slide(inner, 0, 0);
+if (over <= 0 || still) { alertTimer = setTimeout(nextAlert, 8000); return; }
+var secs = Math.max(3, over / (4 * rem));         // about 4rem a second
+alertTimer = setTimeout(function () {
+slide(inner, -over, secs);
+alertTimer = setTimeout(nextAlert, (secs + 3) * 1000);
+}, 3000);
+}
+function nextAlert() { alertIdx++; showAlert(); }
+function drawAlert() {            // drops the alert if the feed has been unreachable for 10 minutes
+if (alerts.length && Date.now() - alertsAt > 600000) { alerts = []; showAlert(); }
+}
 var VIBES = {
 storm:  ["thunder's beefing with someone", "stay inside fr", "sky is big mad"],
 snow:   ["snow day (you still have class)", "boots or regret", "it's giving snow globe"],
@@ -968,6 +1114,9 @@ drawClock(); drawTrain(); loadTrains(); loadWeather();
 setInterval(drawClock, 1000);
 setInterval(drawTrain, 1000);
 setInterval(loadWeather, 600000);
+loadAlerts();
+setInterval(loadAlerts, 120000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden && Date.now() - alertsAt > 120000) { loadAlerts(); } });
 })();
 </script>
 </body>
