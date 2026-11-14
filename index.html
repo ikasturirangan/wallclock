@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Wall Clock">
 <style>
 * { margin: 0; padding: 0; -webkit-box-sizing: border-box; box-sizing: border-box; }
+html { font-size: 1vw; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 html, body { height: 100%; background: #000; color: #fff; overflow: hidden; }
 body {
 font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -23,55 +24,56 @@ cursor: default;
 #top, #rule, #vibe, #train, #call, #status { z-index: 1; }
 #top { position: absolute; left: 5vw; right: 5vw; top: 5vh; height: 36vh; }
 #clock { position: absolute; left: 0; top: 0; }
-#time { font-size: 15vw; line-height: 1; font-weight: 100; letter-spacing: -0.02em; }
-#ampm { font-size: 3.2vw; margin-left: 0.6vw; }
-#date { font-size: 2.8vw; margin-top: 1.2vh; }
+#time { font-size: 15rem; line-height: 1; font-weight: 100; letter-spacing: -0.02em; }
+#ampm { font-size: 3.2rem; margin-left: 0.6rem; }
+#date { font-size: 2.8rem; margin-top: 1.2vh; }
 #weather { position: absolute; right: 0; top: 0; text-align: right; }
-#wrow { height: 15vw; white-space: nowrap; }
-#wicon { display: inline-block; vertical-align: middle; width: 13vw; height: 13vw; margin-right: 2vw; }
-#temp { display: inline-block; vertical-align: middle; font-size: 15vw; line-height: 1; font-weight: 100; }
-#wtext { font-size: 2.8vw; margin-top: 1.2vh; }
-#wmore { font-size: 2.4vw; margin-top: 0.8vh; }
+#wrow { height: 15rem; white-space: nowrap; }
+#wicon { display: inline-block; vertical-align: middle; width: 13rem; height: 13rem; margin-right: 2rem; }
+#temp { display: inline-block; vertical-align: middle; font-size: 15rem; line-height: 1; font-weight: 100; }
+#wtext { font-size: 2.8rem; margin-top: 1.2vh; }
+#wmore { font-size: 2.4rem; margin-top: 0.8vh; }
 #rain.wet { color: #64d2ff; }
 #rule { position: absolute; left: 5vw; right: 5vw; top: 45vh; height: 1px; background: #2c2c2e; }
 #train { position: absolute; left: 5vw; right: 5vw; top: 49vh; bottom: 4vh; }
-#line { font-size: 3.2vw; height: 6vw; line-height: 6vw; white-space: nowrap; }
+#line { font-size: 3.2rem; height: 6rem; line-height: 6rem; white-space: nowrap; }
 #bullet {
-display: inline-block; width: 6vw; height: 6vw; line-height: 6vw; border-radius: 50%;
+display: inline-block; width: 6rem; height: 6rem; line-height: 6rem; border-radius: 50%;
 background: #ff6319; color: #fff; text-align: center;
-font-family: Helvetica, Arial, sans-serif; font-weight: bold; font-size: 3.8vw;
-margin-right: 1.6vw; vertical-align: top;
+font-family: Helvetica, Arial, sans-serif; font-weight: bold; font-size: 3.8rem;
+margin-right: 1.6rem; vertical-align: top;
 }
-#vibe { position: absolute; left: 0; right: 0; top: 45vh; margin-top: -4vw; height: 3.2vw; line-height: 3.2vw; text-align: center; font-size: 2.3vw; font-style: italic; color: #aeaeb2; }
+#vibe { position: absolute; left: 0; right: 0; top: 45vh; margin-top: -4rem; height: 3.2rem; line-height: 3.2rem; text-align: center; font-size: 2.3rem; font-style: italic; color: #aeaeb2; }
 #mins.missed { color: #636366; }
 #trip { position: absolute; right: 0; top: 0; text-align: right; white-space: nowrap; }
-#trip .t1 { font-size: 8.5vw; line-height: 1; font-weight: 200; letter-spacing: -0.02em; }
-#trip .t1 svg { width: 6vw; height: 6vw; margin-right: 1.6vw; vertical-align: -0.2vw; }
-#trip .t1 small { font-size: 2.6vw; color: #8e8e93; margin-left: 0.6vw; letter-spacing: 0; }
-#trip .row { position: relative; height: 3.6vw; margin-top: 1vw; }
-#trip .bar { position: absolute; left: 0; right: 0; top: 50%; height: 0.6vw; margin-top: -0.3vw; }
-#trip .t2 + .bar { right: 13.5vw; }
+#trip .t1 { font-size: 8.5rem; line-height: 1; font-weight: 200; letter-spacing: -0.02em; }
+#trip .t1 svg { width: 6rem; height: 6rem; margin-right: 1.6rem; vertical-align: -0.2rem; }
+#trip .t1 small { font-size: 2.6rem; color: #8e8e93; margin-left: 0.6rem; letter-spacing: 0; }
+#trip .row { position: relative; height: 3.6rem; margin-top: 1rem; }
+#trip .bar { position: absolute; left: 0; right: 0; top: 50%; height: 0.6rem; margin-top: -0.3rem; }
+#trip .t2 + .bar { right: 13.5rem; }
 #trip .bar:before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #2c2c2e; }
-#trip .bar i { position: absolute; top: 0; bottom: 0; border-radius: 0.3vw; }
-#trip .t2 { position: absolute; right: 0; top: 0; line-height: 3.6vw; font-size: 3.2vw; font-weight: 300; color: #8e8e93; }
-#trip .t2 svg { width: 3.2vw; height: 3.2vw; margin-right: 0.8vw; vertical-align: -0.5vw; opacity: 0.55; }
+#trip .bar i { position: absolute; top: 0; bottom: 0; border-radius: 0.3rem; }
+#trip .t2 { position: absolute; right: 0; top: 0; line-height: 3.6rem; font-size: 3.2rem; font-weight: 300; color: #8e8e93; }
+#trip .t2 svg { width: 3.2rem; height: 3.2rem; margin-right: 0.8rem; vertical-align: -0.5rem; opacity: 0.55; }
 #next { position: absolute; left: 0; bottom: 0; white-space: nowrap; line-height: 0.8; }
-#mins { font-size: 30vw; font-weight: 700; letter-spacing: -0.03em; }
-#unit { font-size: 5vw; margin-left: 1.5vw; }
-#later { position: absolute; right: 0; bottom: 1.5vw; text-align: right; }
-#laterlabel { font-size: 2.4vw; }
-#latervals { font-size: 7vw; font-weight: 200; line-height: 1.15; }
-#latervals small { font-size: 2.6vw; color: #8e8e93; margin-left: 0.6vw; }
+#mins { font-size: 30rem; font-weight: 700; letter-spacing: -0.03em; }
+#mins.now { font-size: 24rem; }          /* the word is much wider than the digits */
+#unit { font-size: 5rem; margin-left: 1.5rem; }
+#later { position: absolute; right: 0; bottom: 1.5rem; text-align: right; }
+#laterlabel { font-size: 2.4rem; }
+#latervals { font-size: 7rem; font-weight: 200; line-height: 1.15; }
+#latervals small { font-size: 2.6rem; color: #8e8e93; margin-left: 0.6rem; }
 #latervals i {
-display: inline-block; width: 4.4vw; height: 4.4vw; line-height: 4.4vw; border-radius: 50%;
+display: inline-block; width: 4.4rem; height: 4.4rem; line-height: 4.4rem; border-radius: 50%;
 text-align: center; font-style: normal; font-family: Helvetica, Arial, sans-serif;
-font-weight: bold; font-size: 2.7vw; margin-right: 1.4vw; vertical-align: 0.9vw;
+font-weight: bold; font-size: 2.7rem; margin-right: 1.4rem; vertical-align: 0.9rem;
 }
-#status { position: absolute; left: 5vw; bottom: 1vh; font-size: 1.6vw; color: #ff453a; }
+#status { position: absolute; left: 5vw; bottom: 1vh; font-size: 1.6rem; color: #ff453a; }
 #call {
 position: absolute; left: 5vw; top: 33vh; display: none;
-font-size: 2.4vw; color: #30d158; border: 1px solid #30d158; border-radius: 4vw;
-padding: 1vw 2.4vw; text-decoration: none;
+font-size: 2.4rem; color: #30d158; border: 1px solid #30d158; border-radius: 4rem;
+padding: 1rem 2.4rem; text-decoration: none;
 }
 @keyframes spin  { from { -webkit-transform: rotate(0deg); transform: rotate(0deg); } to { -webkit-transform: rotate(360deg); transform: rotate(360deg); } }
 @keyframes drift { 0% { -webkit-transform: translateX(-3px); transform: translateX(-3px); } 50% { -webkit-transform: translateX(3px); transform: translateX(3px); } 100% { -webkit-transform: translateX(-3px); transform: translateX(-3px); } }
@@ -89,14 +91,24 @@ padding: 1vw 2.4vw; text-decoration: none;
 @media (prefers-reduced-motion: reduce) {
 .rays, .cloud, .drop, .flake, .bolt, .moon, .fogl { -webkit-animation: none; animation: none; }
 }
-@media (min-aspect-ratio: 3/2) {      /* wide screens: keep the "then" list clear of the estimate */
-#later { bottom: 0; }
-#mins { font-size: 22vw; }
-#unit { font-size: 4vw; }
-#trip .t1 { font-size: 7vw; }
-#latervals { font-size: 5vw; }
-#latervals i { width: 3.4vw; height: 3.4vw; line-height: 3.4vw; font-size: 2.1vw; vertical-align: 0.5vw; }
-}
+/* Portrait (set by fit() in the script): clock top-left, weather bottom-right,
+   arrival under the station, the "then" list as one row above the big minutes. */
+.tall #top { left: 6vw; right: 6vw; top: 4vh; height: 37vh; }
+.tall #weather { top: auto; bottom: 0; }
+.tall #wrow { height: 11rem; }
+.tall #wicon { width: 9.5rem; height: 9.5rem; }
+.tall #temp { font-size: 11rem; }
+.tall #rule { left: 6vw; right: 6vw; top: 47vh; }
+.tall #vibe { top: 47vh; }
+.tall #train { left: 6vw; right: 6vw; top: 50vh; }
+.tall #status { left: 6vw; }
+.tall #trip { top: 8rem; }
+.tall #mins { font-size: 18rem; }
+.tall #unit { font-size: 4rem; }
+.tall #later { top: 22rem; bottom: auto; }
+.tall #latervals { font-size: 5rem; }
+.tall #latervals div { display: inline-block; margin-left: 3rem; }
+.tall #latervals i { width: 3.4rem; height: 3.4rem; line-height: 3.4rem; font-size: 2.1rem; vertical-align: 0.5rem; }
 </style>
 </head>
 <body>
@@ -137,6 +149,17 @@ var COLORS = { B: '#ff6319', D: '#ff6319', F: '#ff6319', M: '#ff6319',
 N: '#fccc0a', Q: '#fccc0a', R: '#fccc0a', W: '#fccc0a' };
 function el(id) { return document.getElementById(id); }
 function set(id, text) { var e = el(id); if (e.textContent !== text) { e.textContent = text; } }
+// Every size is in rem, and 1rem is set here so the layout fits any screen.
+// Landscape keeps the 4:3 iPad proportions (1rem = 1% of the width, or of
+// 4/3 of the height on wider screens); portrait switches to a stacked layout.
+function fit() {
+var w = window.innerWidth, h = window.innerHeight, tall = w / h < 0.8;
+document.documentElement.style.fontSize = (tall ? Math.min(w / 47.6, h / 100) : Math.min(w / 100, h / 75)) + 'px';
+document.documentElement.className = tall ? 'tall' : '';
+}
+fit();
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', function () { setTimeout(fit, 300); });
 var CLOUD = '<path class="cloud" fill="#d1d1d6" d="M30 66h42a14 14 0 0 0 1-28 20 20 0 0 0-38-4 16 16 0 0 0-5 32z"/>';
 var SUN = '<g class="rays" stroke="#ffd60a" stroke-width="3" stroke-linecap="round">' +
 '<line x1="50" y1="8" x2="50" y2="18"/><line x1="50" y1="82" x2="50" y2="92"/>' +
@@ -289,7 +312,7 @@ set('mins', 'Now'); el('unit').style.display = 'none';
 set('mins', String(first.mins)); el('unit').style.display = ''; set('unit', 'min');
 }
 var walk = data.walkMin || 0;
-el('mins').className = (walk && first.mins < walk) ? 'missed' : '';
+el('mins').className = ((walk && first.mins < walk) ? 'missed' : '') + (first.mins === 0 ? ' now' : '');
 var html = '', mixed = false, j;
 for (j = 1; j < list.length && j < 3; j++) {
 if (list[j].route !== first.route) { mixed = true; }
