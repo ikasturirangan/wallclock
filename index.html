@@ -37,6 +37,7 @@ cursor: default;
 #rule { position: absolute; left: 5vw; right: 5vw; top: 45vh; height: 1px; background: #2c2c2e; }
 #train { position: absolute; left: 5vw; right: 5vw; top: 49vh; bottom: 4vh; }
 #line { font-size: 3.2rem; height: 6rem; line-height: 6rem; white-space: nowrap; }
+#bullet.bus { width: auto; padding: 0 1.3rem; border-radius: 1.2rem; font-size: 3rem; }
 #bullet {
 display: inline-block; width: 6rem; height: 6rem; line-height: 6rem; border-radius: 50%;
 background: #ff6319; color: #fff; text-align: center;
@@ -236,8 +237,8 @@ return h + ':' + (m < 10 ? '0' : '') + m;
 // Earliest arrival at Jay St for one train from home, over every way in TRIP,
 // using each trip's own predictions. eta is 0 when no way is predicted yet.
 // The legs (change, leave, arrive) are kept for the journey bar.
-function etaFor(t) {
-var best = { board: t.at[STOP_ID].d, route: t.route, eta: 0 }, k, o, j, u, s, ready, walk, end;
+function etaFor(t, from) {
+var best = { board: t.at[from || STOP_ID].d, route: t.route, eta: 0 }, k, o, j, u, s, ready, walk, end;
 for (k = 0; k < TRIP.length; k++) {
 o = TRIP[k]; walk = (o.walk || 0) * 60;
 if (!o.at) {
@@ -289,7 +290,7 @@ var CAP = '<svg viewBox="0 0 100 100"><path fill="#aeaeb2" d="M26 50v15c0 8 11 1
 // ride in its line's colour with the change as the gap between, and a thin
 // line for any walk at the end.
 function barHTML(leg, now) {
-var span = leg.eta - now, out = '', parts = [[now, leg.board, '#3a3a3c']], i, a, b;
+var span = leg.eta - now, out = '', parts = leg.pre ? leg.pre.slice() : [[now, leg.board, '#3a3a3c']], i, a, b;
 if (span <= 0) { return ''; }
 if (leg.leave) { parts.push([leg.board, leg.change, COLORS[leg.route] || '#8e8e93'], [leg.leave, leg.arrive, COLORS[leg.route2] || '#8e8e93']); }
 else { parts.push([leg.board, leg.arrive, COLORS[leg.route] || '#8e8e93']); }
@@ -304,9 +305,72 @@ out += '<i ' + (parts[i][2] === 'walk' ? 'class="walk" ' : '') + 'style="left:' 
 }
 return out;
 }
+// Arrival times when going by B35: each of the next two buses (at least
+// ETA_MIN away), then the train from 36 St that gets to Jay St soonest.
+function busEtas(now) {
+var out = [], i, j, b, t, ready, leg, best;
+for (i = 0; i < buses.length && out.length < 2; i++) {
+b = buses[i];
+if (b.dep - now < ETA_MIN * 60) { continue; }
+ready = b.arr + BUS_WALK * 60; best = null;
+for (j = 0; j < data.trips.length; j++) {
+t = data.trips[j];
+if (!t.at[BUS_STATION] || t.at[BUS_STATION].d < ready || !reaches(t)) { continue; }
+leg = etaFor(t, BUS_STATION);
+if (leg.eta && (!best || leg.eta < best.eta)) { best = leg; }
+}
+best = best || { eta: 0 };
+best.pre = [[now, b.dep, '#3a3a3c'], [b.dep, b.arr, BUS_COLOR], [b.arr, ready, 'walk']];
+best.note = 'B35 to 36 St' + (best.eta > best.arrive && best.note ? ' &middot; ' + best.note : '');
+out.push(best);
+}
+return out;
+}
+// Bus Time is read with JSONP (it does not allow cross-site requests), only
+// while the panel is in bus mode, at most every 30 seconds.
+var buses = [], busAt = 0, busBusy = false, busTried = 0, noD = false;
+function byBus() { return noD && BUS_ON && !!BUS_KEY; }   // panel switched to the B35?
+function isoSec(v) { var t = Date.parse(v); return isNaN(t) ? 0 : t / 1000; }
+function parseBuses(j) {
+var d = j.Siri.ServiceDelivery.StopMonitoringDelivery[0], v = d.MonitoredStopVisit || [], out = [], i, k, mvj, c, dep, arr, on;
+for (i = 0; i < v.length; i++) {
+mvj = v[i].MonitoredVehicleJourney || {}; c = mvj.MonitoredCall || {};
+dep = isoSec(c.ExpectedArrivalTime || c.ExpectedDepartureTime);
+if (!dep) { continue; }           // no live prediction yet (bus still at the terminal)
+arr = 0; on = (mvj.OnwardCalls || {}).OnwardCall || [];
+for (k = 0; k < on.length; k++) { if (on[k].StopPointRef === BUS_TO) { arr = isoSec(on[k].ExpectedArrivalTime); } }
+out.push({ dep: dep, arr: arr > dep ? arr : dep + BUS_RIDE * 60 });
+}
+out.sort(function (a, b) { return a.dep - b.dep; });
+return out;
+}
+function loadBuses() {
+if (!BUS_KEY || busBusy || Date.now() - busTried < 30000) { return; }
+busBusy = true; busTried = Date.now();
+var sc = document.createElement('script'), done = false;
+function finish() { done = true; busBusy = false; if (sc.parentNode) { sc.parentNode.removeChild(sc); } }
+window.wallclockBus = function (j) {
+if (done) { return; }
+finish();
+try { buses = parseBuses(j); busAt = Date.now(); } catch (e) {}
+};
+sc.onerror = finish;
+setTimeout(function () { if (!done) { finish(); } }, 15000);
+sc.src = BUS_API + '?key=' + encodeURIComponent(BUS_KEY) + '&MonitoringRef=' + encodeURIComponent(BUS_FROM) +
+'&LineRef=' + encodeURIComponent(BUS_LINE) + '&DirectionRef=1&StopMonitoringDetailLevel=calls' +
+'&MaximumNumberOfCallsOnwards=8&MaximumStopVisits=4&callback=wallclockBus';
+document.body.appendChild(sc);
+}
+function noTrainHome(now) {     // nothing from home toward Jay St due within NO_D_MIN minutes
+for (var i = 0; i < data.trips.length; i++) {
+var t = data.trips[i], d = t.at[STOP_ID] ? t.at[STOP_ID].d : 0;
+if (d >= now && d - now <= NO_D_MIN * 60 && reaches(t)) { return false; }
+}
+return true;
+}
 var tripHTML = '';
 function drawJourney(now) {
-var e = TRIP.length && data.trips ? etas(now) : [], html = '';
+var e = TRIP.length && data.trips ? (byBus() ? busEtas(now) : etas(now)) : [], html = '';
 if (e.length) {
 html = (e[0].eta && e[0].note ? '<div class="note">' + (e[0].eta > e[0].arrive ? WALKER : '') + e[0].note + '</div>' : '') +
 '<div class="t1">' + CAP + (e[0].eta ? clockText(e[0].eta) + '<small>' +
@@ -324,23 +388,35 @@ set('mins', '--'); set('unit', 'min'); el('unit').style.display = '';
 set('latervals', ' ');
 el('mins').className = '';
 if (tripHTML) { el('trip').innerHTML = tripHTML = ''; }
+if (noD) { noD = false; showAlert(); }
 set('status', trainErr ? 'No live train data – ' + trainErr : 'Connecting…');
 return;
 }
 set('status', '');
+var now = Date.now() / 1000, list = [], i, mins, bm = TRIP.length > 0 && noTrainHome(now);
+if (bm !== noD) { noD = bm; if (bm) { alertsAt = 0; loadAlerts(); } showAlert(); }
+if (byBus()) {
+loadBuses();
+set('where', '39 St & 9 Av');
+set('laterlabel', 'Next buses');
+for (i = 0; i < buses.length && Date.now() - busAt < 120000; i++) {
+mins = Math.floor((buses[i].dep - now) / 60);
+if (mins >= 0) { list.push({ route: 'B35', mins: mins, time: buses[i].dep }); }
+}
+} else {
 set('where', data.direction + '  ·  ' + data.stop);
-var now = Date.now() / 1000;
-var list = [];
-for (var i = 0; i < data.trips.length; i++) {
+set('laterlabel', 'Next trains');
+for (i = 0; i < data.trips.length; i++) {
 var at = data.trips[i].at[STOP_ID];
 if (!at) { continue; }
-var mins = Math.floor((at.d - now) / 60);
+mins = Math.floor((at.d - now) / 60);
 if (mins >= 0) { list.push({ route: data.trips[i].route, mins: mins, time: at.d }); }
+}
 }
 list.sort(function (a, b) { return a.time - b.time; });
 drawJourney(now);
 if (!list.length) {
-set('mins', '--'); el('unit').style.display = ''; set('unit', 'no trains listed');
+set('mins', '--'); el('unit').style.display = ''; set('unit', byBus() ? 'no bus times' : 'no trains listed');
 el('mins').className = '';
 set('latervals', ' ');
 return;
@@ -349,6 +425,7 @@ var first = list[0];
 set('bullet', first.route || 'D');
 el('bullet').style.background = COLORS[first.route] || '#ff6319';
 el('bullet').style.color = COLORS[first.route] === '#fccc0a' ? '#000' : '#fff';
+el('bullet').className = first.route === 'B35' ? 'bus' : '';
 if (first.mins === 0) {
 set('mins', 'Now'); el('unit').style.display = 'none';
 } else {
@@ -779,8 +856,26 @@ var ETA_MIN   = 2;             // a train closer than this is skipped for the es
 // touch one of the stops above (Manhattan-bound) or are a live problem.
 var ALERT_ROUTES = { D: 1, R: 1, N: 1 };
 var ALERT_FEED = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json';
+// When no train from home toward Jay St is due within NO_D_MIN minutes, the
+// panel switches to the B35: 39 St/9 Av to 39 St/4 Av, a short walk into 36 St
+// station, then the best train from there. Bus times need a free MTA Bus Time
+// key (register.developer.obanyc.com). With BUS_ON false the panel keeps
+// showing trains and only the "No D trains at 9 Av" alert line appears.
+var NO_D_MIN    = 30;
+var BUS_ON      = false;            // B35 fallback switched off for now: set true (with a BUS_KEY) to use it
+var BUS_KEY     = '';
+var BUS_API     = 'https://bustime.mta.info/api/siri/stop-monitoring.json';
+var BUS_LINE    = 'MTA NYCT_B35';
+var BUS_FROM    = 'MTA_302777';     // 39 St / 9 Av, toward Sunset Park
+var BUS_TO      = 'MTA_302782';     // 39 St / 4 Av
+var BUS_RIDE    = 7;                // minutes, if Bus Time has no prediction for BUS_TO
+var BUS_WALK    = 5;                // minutes from BUS_TO into 36 St station
+var BUS_STATION = 'R36N';           // 36 St, Manhattan-bound
+var BUS_COLOR   = '#0039a6';
+COLORS.B35 = BUS_COLOR;
 var WANT = {}, ALERT_STOPS = {}, wk;
 WANT[STOP_ID] = 1;
+WANT[BUS_STATION] = 1;
 for (wk = 0; wk < TRIP.length; wk++) {
 WANT[TRIP[wk].to] = 1;
 if (TRIP[wk].at) { WANT[TRIP[wk].at] = 1; WANT[TRIP[wk].from] = 1; }
@@ -888,7 +983,8 @@ function (why) { if (isMain) { mainErr = why; } done(); });
 document.addEventListener('visibilitychange', function () {
 if (document.hidden) { clearTimeout(trainTimer); } else { loadTrains(); }
 });
-// Service alerts. An alert counts when it is active now, names one of
+// Service alerts, fetched and shown only while no D is due at 9 Av (noD),
+// in place of the vibe line. An alert counts when it is active now, names one of
 // ALERT_ROUTES, and either lists one of our stops (Manhattan-bound, which is
 // direction 0) among its affected stations or, listing none, is a live
 // problem such as delays or a suspension. Planned work elsewhere on the line
@@ -924,7 +1020,7 @@ var s = alertEnglish(a).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/
 return s.replace(/\[([A-Z0-9])\]/g, function (x, r) { return bulletHTML(r); }).replace(/\[[^\]]*\]/g, '');
 }
 function loadAlerts() {
-if (document.hidden) { return; }
+if (document.hidden || !noD) { return; }
 var x = new XMLHttpRequest();
 x.open('GET', ALERT_FEED, true);
 x.timeout = 20000;
@@ -956,7 +1052,8 @@ e.style.transform = tf;
 }
 function showAlert() {
 clearTimeout(alertTimer);
-var box = el('alert'), html = alerts.length ? WARN + alerts[alertIdx % alerts.length] : '';
+var box = el('alert'), html = !noD ? '' : WARN + (alerts.length ? alerts[alertIdx % alerts.length] :
+'No ' + bulletHTML('D') + ' trains at 9 Av' + (BUS_ON && BUS_KEY ? ' &mdash; take the B35 to 36 St' : ''));
 if (html !== alertHTML) {
 box.innerHTML = html ? '<span>' + html + '</span>' : '';
 box.style.display = html ? 'block' : 'none';
