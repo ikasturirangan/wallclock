@@ -44,6 +44,17 @@ margin-right: 1.6vw; vertical-align: top;
 }
 #vibe { position: absolute; left: 0; right: 0; top: 45vh; margin-top: -4vw; height: 3.2vw; line-height: 3.2vw; text-align: center; font-size: 2.3vw; font-style: italic; color: #aeaeb2; }
 #mins.missed { color: #636366; }
+#trip { position: absolute; right: 0; top: 0; text-align: right; white-space: nowrap; }
+#eta { height: 6vw; line-height: 6vw; font-size: 3.2vw; }
+#eta b { font-size: 4.4vw; font-weight: 300; margin-left: 1.4vw; color: #fff; }
+#eta b + span { font-size: 2.2vw; margin-left: 0.5vw; }
+#etavia { font-size: 2.1vw; }
+#etavia .sep { margin: 0 0.6vw; }
+#etavia i {
+display: inline-block; width: 2.9vw; height: 2.9vw; line-height: 2.9vw; border-radius: 50%;
+text-align: center; font-style: normal; font-family: Helvetica, Arial, sans-serif;
+font-weight: bold; font-size: 1.8vw; margin-right: 0.7vw; vertical-align: 0.15vw;
+}
 #next { position: absolute; left: 0; bottom: 0; white-space: nowrap; line-height: 0.8; }
 #mins { font-size: 30vw; font-weight: 700; letter-spacing: -0.03em; }
 #unit { font-size: 5vw; margin-left: 1.5vw; }
@@ -78,6 +89,13 @@ padding: 1vw 2.4vw; text-decoration: none;
 @media (prefers-reduced-motion: reduce) {
 .rays, .cloud, .drop, .flake, .bolt, .moon, .fogl { -webkit-animation: none; animation: none; }
 }
+@media (min-aspect-ratio: 3/2) {      /* wide screens: keep the "then" list clear of the estimate */
+#later { bottom: 0; }
+#mins { font-size: 22vw; }
+#unit { font-size: 4vw; }
+#latervals { font-size: 5vw; }
+#latervals i { width: 3.4vw; height: 3.4vw; line-height: 3.4vw; font-size: 2.1vw; vertical-align: 0.5vw; }
+}
 </style>
 </head>
 <body>
@@ -97,6 +115,7 @@ padding: 1vw 2.4vw; text-decoration: none;
 <div id="vibe"></div>
 <div id="train">
 <div id="line"><span id="bullet">D</span><span id="where" class="dim">&nbsp;</span></div>
+<div id="trip"></div>
 <div id="next"><span id="mins">--</span><span id="unit" class="dim">min</span></div>
 <div id="later">
 <div id="laterlabel" class="dim">then</div>
@@ -109,7 +128,6 @@ padding: 1vw 2.4vw; text-decoration: none;
 (function () {
 var data = null;
 var gotAt = 0;
-var skew = 0;
 var shownKind = '';
 var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
@@ -165,23 +183,73 @@ freshReload();
 }
 }
 var loadedAt = Date.now();
+function bulletHTML(route) {
+var bg = COLORS[route] || '#8e8e93';
+return '<i style="background:' + bg + ';color:' + (bg === '#fccc0a' ? '#000' : '#fff') + '">' + route + '</i>';
+}
+function clockText(sec) {
+var d = new Date(sec * 1000), h = d.getHours() % 12 || 12, m = d.getMinutes();
+return h + ':' + (m < 10 ? '0' : '') + m;
+}
+// Next train from home you can still walk to, then the connection at
+// XFER_STOP that gets to DEST_STOP soonest, using each trip's own predictions.
+function journey(now) {
+var walk = (data.walkMin || 0) * 60, home = [], i, j, t, u, ready, best;
+for (i = 0; i < data.trips.length; i++) {
+t = data.trips[i];
+if (t.at[STOP_ID] && t.at[STOP_ID].d - now >= walk) { home.push(t); }
+}
+home.sort(function (a, b) { return a.at[STOP_ID].d - b.at[STOP_ID].d; });
+for (i = 0; i < home.length && i < 3; i++) {
+t = home[i];
+if (t.at[DEST_STOP]) { return { from: t, eta: t.at[DEST_STOP].a }; }
+if (!t.at[XFER_STOP]) { continue; }
+ready = t.at[XFER_STOP].a + XFER_MIN * 60; best = null;
+for (j = 0; j < data.trips.length; j++) {
+u = data.trips[j];
+if (u === t || !u.at[XFER_STOP] || !u.at[DEST_STOP]) { continue; }
+if (u.at[XFER_STOP].d < ready || u.at[DEST_STOP].a <= u.at[XFER_STOP].d) { continue; }
+if (!best || u.at[DEST_STOP].a < best.at[DEST_STOP].a) { best = u; }
+}
+return { from: t, via: best, eta: best ? best.at[DEST_STOP].a : 0 };
+}
+return null;
+}
+var tripHTML = '';
+function drawJourney(now) {
+var j = DEST_STOP && data.trips ? journey(now) : null, html = '';
+if (j) {
+var sep = ' <span class="sep">&rarr;</span> ', board = j.from.at[STOP_ID].d;
+html = '<div id="eta"><span class="dim">' + DEST_NAME + '</span>' +
+(j.eta ? '<b>' + clockText(j.eta) + '</b><span class="dim">' + (new Date(j.eta * 1000).getHours() < 12 ? 'AM' : 'PM') + '</span>'
+: '<b>--</b>') + '</div><div id="etavia" class="dim">' + bulletHTML(j.from.route) + clockText(board) +
+(j.via ? sep + bulletHTML(j.via.route) + clockText(j.via.at[XFER_STOP].d) + ' at ' + XFER_NAME : j.eta ? ' &middot; direct' : sep + 'no connection predicted yet') +
+(j.eta ? ' &middot; in ' + Math.round((j.eta - now) / 60) + ' min' : '') + '</div>';
+}
+if (html !== tripHTML) { el('trip').innerHTML = html; tripHTML = html; }
+}
 function drawTrain() {
-var fresh = data && data.trains && (Date.now() - gotAt) < 90000;
+var fresh = data && data.trips && (Date.now() - gotAt) < 90000;
 if (!fresh) {
 set('mins', '--'); set('unit', 'min'); el('unit').style.display = '';
 set('latervals', ' ');
 el('mins').className = '';
+if (tripHTML) { el('trip').innerHTML = tripHTML = ''; }
 set('status', trainErr ? 'No live train data – ' + trainErr : 'Connecting…');
 return;
 }
 set('status', '');
 set('where', data.direction + '  ·  ' + data.stop);
-var now = (Date.now() + skew) / 1000;
+var now = Date.now() / 1000;
 var list = [];
-for (var i = 0; i < data.trains.length; i++) {
-var mins = Math.floor((data.trains[i].time - now) / 60);
-if (mins >= 0) { list.push({ route: data.trains[i].route, mins: mins }); }
+for (var i = 0; i < data.trips.length; i++) {
+var at = data.trips[i].at[STOP_ID];
+if (!at) { continue; }
+var mins = Math.floor((at.d - now) / 60);
+if (mins >= 0) { list.push({ route: data.trips[i].route, mins: mins, time: at.d }); }
 }
+list.sort(function (a, b) { return a.time - b.time; });
+drawJourney(now);
 if (!list.length) {
 set('mins', '--'); el('unit').style.display = ''; set('unit', 'no trains listed');
 el('mins').className = '';
@@ -205,10 +273,7 @@ if (list[j].route !== first.route) { mixed = true; }
 }
 for (j = 1; j < list.length && j < 3; j++) {
 var bg = COLORS[list[j].route] || '#8e8e93';
-html += '<div>' +
-(mixed ? '<i style="background:' + bg + ';color:' + (bg === '#fccc0a' ? '#000' : '#fff') + '">' +
-list[j].route + '</i>' : '') +
-list[j].mins + '<small>min</small></div>';
+html += '<div>' + (mixed ? bulletHTML(list[j].route) : '') + list[j].mins + '<small>min</small></div>';
 }
 var lv = el('latervals');
 if (lv.innerHTML !== html) { lv.innerHTML = html || ' '; }
@@ -605,7 +670,19 @@ var LAT = 40.6463, LON = -73.9944;
 var FEED_BASE = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-';
 var MAIN_FEED = 'bdfm';
 var EXTRA_FEEDS = ['nqrw'];
-data = { trains: null, weather: null, walkMin: WALK_MIN, fun: FUN, animate: ANIMATE,
+var POLL_SEC  = 15;            // MTA republishes each feed every ~5-10s
+// Commute estimate, top right of the train panel. Any train that stops at
+// XFER_STOP and then DEST_STOP counts as the connection (the R, or the N late
+// nights); a train from home that reaches DEST_STOP itself needs no change.
+var DEST_STOP = 'R29N';        // Jay St-MetroTech, Manhattan-bound; '' hides the estimate
+var DEST_NAME = 'Jay St';
+var XFER_STOP = 'R31N';        // Atlantic Av-Barclays Ctr
+var XFER_NAME = 'Atlantic';
+var XFER_MIN  = 1;             // minutes to change trains (cross-platform there)
+var WANT = {};
+WANT[STOP_ID] = 1;
+if (DEST_STOP) { WANT[DEST_STOP] = 1; WANT[XFER_STOP] = 1; }
+data = { trips: null, weather: null, walkMin: WALK_MIN, fun: FUN, animate: ANIMATE,
 callHome: CALL_HOME, stop: STOP_NAME, direction: DIRECTION };
 var trainErr = '';
 function eachField(buf, pos, end, cb) {
@@ -632,17 +709,19 @@ var out = '';
 for (var i = s; i < e; i++) { out += String.fromCharCode(buf[i]); }
 return out;
 }
-function parseFeed(buf, stopId, nowSec) {
+// One entry per trip that calls at a stop we care about:
+// { route: 'D', at: { B12N: { a: arrival, d: departure }, R31N: {...} } } (unix seconds)
+function parseFeed(buf, nowSec) {
 var out = [];
 eachField(buf, 0, buf.length, function (n, v, s, e) {
 if (n !== 2) { return; }
 eachField(buf, s, e, function (n2, v2, s2, e2) {
 if (n2 !== 3) { return; }
-var route = '', hits = [];
+var trip = { route: '', at: {} }, keep = false;
 eachField(buf, s2, e2, function (n3, v3, s3, e3) {
 if (n3 === 1) {
 eachField(buf, s3, e3, function (n4, v4, s4, e4) {
-if (n4 === 5) { route = text(buf, s4, e4); }
+if (n4 === 5) { trip.route = text(buf, s4, e4).replace(/\W/g, ''); }
 });
 } else if (n3 === 2) {
 var sid = '', arr = 0, dep = 0;
@@ -654,11 +733,13 @@ if (n5 === 2) { if (n4 === 2) { arr = v5; } else { dep = v5; } }
 });
 }
 });
-var when = dep || arr;
-if (sid === stopId && when >= nowSec - 30) { hits.push(when); }
+if (WANT[sid] === 1 && (dep || arr) >= nowSec - 30) {
+trip.at[sid] = { a: arr || dep, d: dep || arr };
+keep = true;
+}
 }
 });
-for (var i = 0; i < hits.length; i++) { out.push({ route: route, time: hits[i] }); }
+if (keep) { out.push(trip); }
 });
 });
 return out;
@@ -670,30 +751,39 @@ x.responseType = 'arraybuffer';
 x.timeout = 15000;
 x.onload = function () {
 if (x.status !== 200 || !x.response) { fail('MTA answered ' + x.status); return; }
-try { ok(parseFeed(new Uint8Array(x.response), STOP_ID, Date.now() / 1000)); }
+try { ok(parseFeed(new Uint8Array(x.response), Date.now() / 1000)); }
 catch (e) { fail('unreadable feed'); }
 };
 x.onerror = function () { fail('feed blocked or offline'); };
 x.ontimeout = function () { fail('feed timed out'); };
 x.send();
 }
+// All feeds are fetched in parallel; the next poll is scheduled only once
+// this one has finished, so slow responses never pile up. Polling pauses
+// while the page is hidden and refreshes the moment it is shown again.
+var trainsBusy = false, trainTimer = 0;
 function loadTrains() {
-getFeed(MAIN_FEED, function (list) {
-var waiting = EXTRA_FEEDS.length;
-function finish() {
-list.sort(function (a, b) { return a.time - b.time; });
-data.trains = list.slice(0, 4);
-gotAt = Date.now(); trainErr = '';
+clearTimeout(trainTimer);
+if (trainsBusy) { return; }
+trainsBusy = true;
+var feeds = [MAIN_FEED].concat(EXTRA_FEEDS), waiting = feeds.length, trips = [], mainErr = '', i;
+function done() {
+if (--waiting > 0) { return; }
+trainsBusy = false;
+if (mainErr) { trainErr = mainErr; } else { data.trips = trips; gotAt = Date.now(); trainErr = ''; }
 drawTrain();
+if (!document.hidden) { trainTimer = setTimeout(loadTrains, POLL_SEC * 1000); }
 }
-if (!waiting) { finish(); return; }
-for (var i = 0; i < EXTRA_FEEDS.length; i++) {
-getFeed(EXTRA_FEEDS[i],
-function (more) { list = list.concat(more); if (--waiting === 0) { finish(); } },
-function () { if (--waiting === 0) { finish(); } });
+for (i = 0; i < feeds.length; i++) {
+(function (isMain) {
+getFeed(feeds[i], function (list) { trips = trips.concat(list); done(); },
+function (why) { if (isMain) { mainErr = why; } done(); });
+})(i === 0);
 }
-}, function (why) { trainErr = why; drawTrain(); });
 }
+document.addEventListener('visibilitychange', function () {
+if (document.hidden) { clearTimeout(trainTimer); } else { loadTrains(); }
+});
 var VIBES = {
 storm:  ["thunder's beefing with someone", "stay inside fr", "sky is big mad"],
 snow:   ["snow day (you still have class)", "boots or regret", "it's giving snow globe"],
@@ -827,8 +917,7 @@ el('call').href = 'facetime:' + CALL_HOME;
 setSky(ANIMATE ? 'none' : 'off');   // time-of-day wash until the first forecast arrives
 drawClock(); drawTrain(); loadTrains(); loadWeather();
 setInterval(drawClock, 1000);
-setInterval(drawTrain, 5000);
-setInterval(loadTrains, 30000);
+setInterval(drawTrain, 1000);
 setInterval(loadWeather, 600000);
 })();
 </script>
