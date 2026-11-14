@@ -161,7 +161,7 @@ h = h % 12; if (h === 0) { h = 12; }
 set('time', h + ':' + (m < 10 ? '0' : '') + m);
 set('date', DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate());
 if (d.getHours() === 4 && m === 0 && d.getSeconds() < 2 && Date.now() - loadedAt > 120000) {
-location.reload();
+freshReload();
 }
 }
 var loadedAt = Date.now();
@@ -788,6 +788,38 @@ drawWeather();
 }, function () {});
 }, fail);
 }
+// Home-screen web apps have no reload button, and iOS resumes them from a
+// snapshot, so the page keeps itself current: whenever it is opened or comes
+// back to the foreground, and every 5 minutes, it fetches its own HTML past
+// every cache and reloads if the styles or script differ from what is running.
+var UPDATE_GAP = 60000;                // never check more than once a minute
+var lastCheck = Date.now(), checking = false;
+function freshReload() { location.replace(location.pathname + '?v=' + Date.now()); }
+function sourceOf(styles, script) { return (styles + '\n' + script).replace(/\r\n?/g, '\n'); }
+function runningSource() {
+var st = document.getElementsByTagName('style')[0], sc = document.getElementsByTagName('script');
+return sourceOf(st ? st.textContent : '', sc.length ? sc[sc.length - 1].text : '');
+}
+function checkUpdate() {
+if (checking || Date.now() - lastCheck < UPDATE_GAP) { return; }
+checking = true; lastCheck = Date.now();
+var x = new XMLHttpRequest();
+x.open('GET', location.pathname + '?check=' + Date.now(), true);
+x.timeout = 15000;
+x.onload = function () {
+checking = false;
+if (x.status !== 200) { return; }
+var m = x.responseText.match(/<style>([\s\S]*?)<\/style>[\s\S]*?<script>([\s\S]*?)<\/script>/);
+if (m && sourceOf(m[1], m[2]) !== runningSource()) { freshReload(); }
+};
+x.onerror = x.ontimeout = function () { checking = false; };
+x.send();
+}
+document.addEventListener('visibilitychange', function () { if (!document.hidden) { checkUpdate(); } });
+window.addEventListener('pageshow', checkUpdate);
+window.addEventListener('focus', checkUpdate);
+setInterval(checkUpdate, 300000);
+el('clock').onclick = freshReload;      // tap the time to force a fresh reload
 if (CALL_HOME) {
 el('call').style.display = 'block';
 el('call').href = 'facetime:' + CALL_HOME;
