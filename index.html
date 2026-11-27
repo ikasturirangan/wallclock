@@ -460,6 +460,7 @@ vb.setAttribute('data-v', w.vibe || '');
 }
 setSky(data.animate ? w.kind : 'off');
 var more = '';
+if (w.alt !== null) { more += w.alt + '°' + (UNITS === 'C' ? 'F' : 'C') + '   '; }
 if (w.high !== null) { more += 'H ' + w.high + '°   '; }
 if (w.low !== null) { more += 'L ' + w.low + '°   '; }
 el('wmore').innerHTML = more.replace(/ {3}/g, '&nbsp;&nbsp;&nbsp;') +
@@ -1117,6 +1118,8 @@ if (v === null || v === undefined) { return null; }
 return (p.temperatureUnit || 'F').charAt(0).toUpperCase() === 'C' ? v * 9 / 5 + 32 : v;
 }
 function show(f) { return f === null ? null : Math.round(UNITS === 'C' ? (f - 32) * 5 / 9 : f); }
+// The other unit, shown small beside high/low (°F when UNITS is 'C', and back).
+function alt(f) { return f === null ? null : Math.round(UNITS === 'C' ? f : (f - 32) * 5 / 9); }
 function getJSON(url, ok, fail) {
 var x = new XMLHttpRequest();
 x.open('GET', url, true);
@@ -1154,7 +1157,7 @@ var pop = up[i].probabilityOfPrecipitation;
 if (pop && pop.value > rain) { rain = pop.value; }
 }
 var f = toF(cur), kind = kindOf(cur.shortForecast), old = data.weather || {};
-data.weather = { temp: show(f), text: cur.shortForecast || '', kind: kind, isDay: !!cur.isDaytime,
+data.weather = { temp: show(f), alt: alt(f), text: cur.shortForecast || '', kind: kind, isDay: !!cur.isDaytime,
 high: old.high === undefined ? null : old.high, low: old.low === undefined ? null : old.low,
 rain: Math.round(rain), vibe: FUN ? vibe(kind, f, !!cur.isDaytime) : '' };
 wxAt = Date.now();
