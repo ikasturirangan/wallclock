@@ -1142,11 +1142,14 @@ if (j + 1 >= up.length || j + 1 >= i + 24) { return i === 0 ? '' : word + ' from
 if (i === 0) { return 'until ' + b.n + ' ' + b.m; }
 return word + ' ' + a.n + (a.m === b.m ? '' : ' ' + a.m) + ' – ' + b.n + ' ' + b.m;
 }
-// Any hour left today (before midnight) at 40%+ means take an umbrella, even
-// if the rain is not due until the evening.
+// Dry now, but an hour later today (before midnight) at 40%+ means take an
+// umbrella, even if the rain is not due until the evening. Already wet: no
+// reminder, the forecast line says how long it lasts.
 function umbrella(up) {
-var mid = new Date(); mid.setHours(24, 0, 0, 0);
-for (var i = 0; i < up.length && Date.parse(up[i].startTime) < mid.getTime(); i++) {
+var mid = new Date(), now = up[0] && up[0].probabilityOfPrecipitation;
+mid.setHours(24, 0, 0, 0);
+if (now && now.value >= 40) { return ''; }
+for (var i = 1; i < up.length && Date.parse(up[i].startTime) < mid.getTime(); i++) {
 var pop = up[i].probabilityOfPrecipitation;
 if (pop && pop.value >= 40) {
 return '☂️ ' + (kindOf(up[i].shortForecast) === 'snow' ? 'Snow' : 'Rain') +
