@@ -45,6 +45,8 @@ font-family: Helvetica, Arial, sans-serif; font-weight: bold; font-size: 3.8rem;
 margin-right: 1.6rem; vertical-align: top;
 }
 #vibe { position: absolute; left: 0; right: 0; top: 45vh; margin-top: -4rem; height: 3.2rem; line-height: 3.2rem; text-align: center; font-size: 2.3rem; font-style: italic; color: #aeaeb2; }
+/* Rain due later today takes the vibe line, so the umbrella gets remembered. */
+#vibe.wet { color: #64d2ff; font-style: normal; }
 /* A service alert that affects the commute takes the vibe line's place. */
 #alert { position: absolute; left: 5vw; right: 5vw; top: 45vh; margin-top: -4rem; height: 3.2rem; line-height: 3.2rem; text-align: center; font-size: 2.2rem; color: #ffd60a; white-space: nowrap; overflow: hidden; display: none; }
 #alert span { display: inline-block; }
@@ -452,11 +454,12 @@ set('temp', (w.temp === null ? '--' : w.temp) + '°');
 set('wtext', (w.text || '') + (w.span ? (w.text ? ' · ' : '') + w.span : '') || ' ');
 var key = w.kind + (w.isDay ? 'd' : 'n');
 if (key !== shownKind) { el('wicon').innerHTML = icon(w.kind, w.isDay); shownKind = key; }
-var vb = el('vibe'), vhtml = w.vibe ? '<span></span>' : '';
-if (vb.getAttribute('data-v') !== (w.vibe || '')) {
-vb.innerHTML = vhtml;
-if (w.vibe) { vb.firstChild.textContent = w.vibe; }
-vb.setAttribute('data-v', w.vibe || '');
+var vb = el('vibe'), vt = w.umbrella || w.vibe || '';
+if (vb.getAttribute('data-v') !== vt) {
+vb.innerHTML = vt ? '<span></span>' : '';
+if (vt) { vb.firstChild.textContent = vt; }
+vb.className = w.umbrella ? 'wet' : '';
+vb.setAttribute('data-v', vt);
 }
 setSky(data.animate ? w.kind : 'off');
 var more = '';
@@ -1139,6 +1142,19 @@ if (j + 1 >= up.length || j + 1 >= i + 24) { return i === 0 ? '' : word + ' from
 if (i === 0) { return 'until ' + b.n + ' ' + b.m; }
 return word + ' ' + a.n + (a.m === b.m ? '' : ' ' + a.m) + ' – ' + b.n + ' ' + b.m;
 }
+// Any hour left today (before midnight) at 40%+ means take an umbrella, even
+// if the rain is not due until the evening.
+function umbrella(up) {
+var mid = new Date(); mid.setHours(24, 0, 0, 0);
+for (var i = 0; i < up.length && Date.parse(up[i].startTime) < mid.getTime(); i++) {
+var pop = up[i].probabilityOfPrecipitation;
+if (pop && pop.value >= 40) {
+return '☂️ ' + (kindOf(up[i].shortForecast) === 'snow' ? 'Snow' : 'Rain') +
+' expected today. Take an umbrella';
+}
+}
+return '';
+}
 function getJSON(url, ok, fail) {
 var x = new XMLHttpRequest();
 x.open('GET', url, true);
@@ -1178,7 +1194,7 @@ if (pop && pop.value > rain) { rain = pop.value; }
 var f = toF(cur), kind = kindOf(cur.shortForecast), old = data.weather || {};
 data.weather = { temp: show(f), alt: alt(f), text: cur.shortForecast || '', kind: kind, isDay: !!cur.isDaytime,
 high: old.high === undefined ? null : old.high, low: old.low === undefined ? null : old.low,
-rain: Math.round(rain), span: rainSpan(up), vibe: FUN ? vibe(kind, f, !!cur.isDaytime) : '' };
+rain: Math.round(rain), span: rainSpan(up), umbrella: umbrella(up), vibe: FUN ? vibe(kind, f, !!cur.isDaytime) : '' };
 wxAt = Date.now();
 drawWeather();
 getJSON(points.daily, function (d) {
