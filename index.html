@@ -45,6 +45,8 @@ font-family: Helvetica, Arial, sans-serif; font-weight: bold; font-size: 3.8rem;
 margin-right: 1.6rem; vertical-align: top;
 }
 #vibe { position: absolute; left: 0; right: 0; top: 45vh; margin-top: -4rem; height: 3.2rem; line-height: 3.2rem; text-align: center; font-size: 2.3rem; font-style: italic; color: #aeaeb2; }
+/* Rain due later today takes the vibe line, so the umbrella gets remembered. */
+#vibe.wet { color: #64d2ff; font-style: normal; }
 /* A service alert that affects the commute takes the vibe line's place. */
 #alert { position: absolute; left: 5vw; right: 5vw; top: 45vh; margin-top: -4rem; height: 3.2rem; line-height: 3.2rem; text-align: center; font-size: 2.2rem; color: #ffd60a; white-space: nowrap; overflow: hidden; display: none; }
 #alert span { display: inline-block; }
@@ -449,17 +451,19 @@ function drawWeather() {
 var w = data && data.weather;
 if (!w) { return; }
 set('temp', (w.temp === null ? '--' : w.temp) + '°');
-set('wtext', w.text || ' ');
+set('wtext', (w.text || '') + (w.span ? (w.text ? ' · ' : '') + w.span : '') || ' ');
 var key = w.kind + (w.isDay ? 'd' : 'n');
 if (key !== shownKind) { el('wicon').innerHTML = icon(w.kind, w.isDay); shownKind = key; }
-var vb = el('vibe'), vhtml = w.vibe ? '<span></span>' : '';
-if (vb.getAttribute('data-v') !== (w.vibe || '')) {
-vb.innerHTML = vhtml;
-if (w.vibe) { vb.firstChild.textContent = w.vibe; }
-vb.setAttribute('data-v', w.vibe || '');
+var vb = el('vibe'), vt = w.umbrella || w.vibe || '';
+if (vb.getAttribute('data-v') !== vt) {
+vb.innerHTML = vt ? '<span></span>' : '';
+if (vt) { vb.firstChild.textContent = vt; }
+vb.className = w.umbrella ? 'wet' : '';
+vb.setAttribute('data-v', vt);
 }
 setSky(data.animate ? w.kind : 'off');
 var more = '';
+if (w.alt !== null) { more += w.alt + '°' + (UNITS === 'C' ? 'F' : 'C') + '   '; }
 if (w.high !== null) { more += 'H ' + w.high + '°   '; }
 if (w.low !== null) { more += 'L ' + w.low + '°   '; }
 el('wmore').innerHTML = more.replace(/ {3}/g, '&nbsp;&nbsp;&nbsp;') +
@@ -1117,6 +1121,45 @@ if (v === null || v === undefined) { return null; }
 return (p.temperatureUnit || 'F').charAt(0).toUpperCase() === 'C' ? v * 9 / 5 + 32 : v;
 }
 function show(f) { return f === null ? null : Math.round(UNITS === 'C' ? (f - 32) * 5 / 9 : f); }
+// The other unit, shown small beside high/low (°F when UNITS is 'C', and back).
+function alt(f) { return f === null ? null : Math.round(UNITS === 'C' ? f : (f - 32) * 5 / 9); }
+// When wet weather is coming in the next 12 hours, the stretch of hours it
+// covers: "until 5 PM" if it is wet now, "rain 2 – 5 PM" if later, "rain from
+// 2 PM" if it runs past the next day. An hour counts as wet at 40%+, like the blue Rain %.
+function hourOf(t) {
+var h = new Date(Date.parse(t)).getHours();
+return { n: (h % 12 || 12), m: h < 12 ? 'AM' : 'PM' };
+}
+function rainSpan(up) {
+function wet(p) { return p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value >= 40; }
+var i = 0, j;
+while (i < up.length && i < 12 && !wet(up[i])) { i++; }
+if (i >= up.length || i >= 12) { return ''; }
+for (j = i; j + 1 < up.length && j + 1 < i + 24 && wet(up[j + 1]); j++) {}
+var word = kindOf(up[i].shortForecast) === 'snow' ? 'snow' : 'rain';
+var a = hourOf(up[i].startTime), b = hourOf(up[j].endTime);
+if (j + 1 >= up.length || j + 1 >= i + 24) { return i === 0 ? '' : word + ' from ' + a.n + ' ' + a.m; }
+if (i === 0) { return 'until ' + b.n + ' ' + b.m; }
+return word + ' ' + a.n + (a.m === b.m ? '' : ' ' + a.m) + ' – ' + b.n + ' ' + b.m;
+}
+// Dry now, but an hour later today (before midnight) at 40%+ means take an
+// umbrella, even if the rain is not due until the evening. Already wet: no
+// reminder, the forecast line says how long it lasts. The hourly % lags real
+// rain, so a current forecast that names rain/snow/storm also counts as wet.
+function umbrella(up) {
+var mid = new Date(), now = up[0] && up[0].probabilityOfPrecipitation;
+mid.setHours(24, 0, 0, 0);
+var k0 = up[0] ? kindOf(up[0].shortForecast) : '';
+if ((now && now.value >= 40) || k0 === 'rain' || k0 === 'storm' || k0 === 'snow') { return ''; }
+for (var i = 1; i < up.length && Date.parse(up[i].startTime) < mid.getTime(); i++) {
+var pop = up[i].probabilityOfPrecipitation;
+if (pop && pop.value >= 40) {
+return '☂️ ' + (kindOf(up[i].shortForecast) === 'snow' ? 'Snow' : 'Rain') +
+' expected today. Take an umbrella';
+}
+}
+return '';
+}
 function getJSON(url, ok, fail) {
 var x = new XMLHttpRequest();
 x.open('GET', url, true);
@@ -1154,9 +1197,9 @@ var pop = up[i].probabilityOfPrecipitation;
 if (pop && pop.value > rain) { rain = pop.value; }
 }
 var f = toF(cur), kind = kindOf(cur.shortForecast), old = data.weather || {};
-data.weather = { temp: show(f), text: cur.shortForecast || '', kind: kind, isDay: !!cur.isDaytime,
+data.weather = { temp: show(f), alt: alt(f), text: cur.shortForecast || '', kind: kind, isDay: !!cur.isDaytime,
 high: old.high === undefined ? null : old.high, low: old.low === undefined ? null : old.low,
-rain: Math.round(rain), vibe: FUN ? vibe(kind, f, !!cur.isDaytime) : '' };
+rain: Math.round(rain), span: rainSpan(up), umbrella: umbrella(up), vibe: FUN ? vibe(kind, f, !!cur.isDaytime) : '' };
 wxAt = Date.now();
 drawWeather();
 getJSON(points.daily, function (d) {
