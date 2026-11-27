@@ -449,7 +449,7 @@ function drawWeather() {
 var w = data && data.weather;
 if (!w) { return; }
 set('temp', (w.temp === null ? '--' : w.temp) + '°');
-set('wtext', w.text || ' ');
+set('wtext', (w.text || '') + (w.span ? (w.text ? ' · ' : '') + w.span : '') || ' ');
 var key = w.kind + (w.isDay ? 'd' : 'n');
 if (key !== shownKind) { el('wicon').innerHTML = icon(w.kind, w.isDay); shownKind = key; }
 var vb = el('vibe'), vhtml = w.vibe ? '<span></span>' : '';
@@ -1120,6 +1120,25 @@ return (p.temperatureUnit || 'F').charAt(0).toUpperCase() === 'C' ? v * 9 / 5 + 
 function show(f) { return f === null ? null : Math.round(UNITS === 'C' ? (f - 32) * 5 / 9 : f); }
 // The other unit, shown small beside high/low (°F when UNITS is 'C', and back).
 function alt(f) { return f === null ? null : Math.round(UNITS === 'C' ? f : (f - 32) * 5 / 9); }
+// When wet weather is coming in the next 12 hours, the stretch of hours it
+// covers: "until 5 PM" if it is wet now, "rain 2 – 5 PM" if later, "rain from
+// 2 PM" if it runs past the next day. An hour counts as wet at 40%+, like the blue Rain %.
+function hourOf(t) {
+var h = new Date(Date.parse(t)).getHours();
+return { n: (h % 12 || 12), m: h < 12 ? 'AM' : 'PM' };
+}
+function rainSpan(up) {
+function wet(p) { return p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value >= 40; }
+var i = 0, j;
+while (i < up.length && i < 12 && !wet(up[i])) { i++; }
+if (i >= up.length || i >= 12) { return ''; }
+for (j = i; j + 1 < up.length && j + 1 < i + 24 && wet(up[j + 1]); j++) {}
+var word = kindOf(up[i].shortForecast) === 'snow' ? 'snow' : 'rain';
+var a = hourOf(up[i].startTime), b = hourOf(up[j].endTime);
+if (j + 1 >= up.length || j + 1 >= i + 24) { return i === 0 ? '' : word + ' from ' + a.n + ' ' + a.m; }
+if (i === 0) { return 'until ' + b.n + ' ' + b.m; }
+return word + ' ' + a.n + (a.m === b.m ? '' : ' ' + a.m) + ' – ' + b.n + ' ' + b.m;
+}
 function getJSON(url, ok, fail) {
 var x = new XMLHttpRequest();
 x.open('GET', url, true);
@@ -1159,7 +1178,7 @@ if (pop && pop.value > rain) { rain = pop.value; }
 var f = toF(cur), kind = kindOf(cur.shortForecast), old = data.weather || {};
 data.weather = { temp: show(f), alt: alt(f), text: cur.shortForecast || '', kind: kind, isDay: !!cur.isDaytime,
 high: old.high === undefined ? null : old.high, low: old.low === undefined ? null : old.low,
-rain: Math.round(rain), vibe: FUN ? vibe(kind, f, !!cur.isDaytime) : '' };
+rain: Math.round(rain), span: rainSpan(up), vibe: FUN ? vibe(kind, f, !!cur.isDaytime) : '' };
 wxAt = Date.now();
 drawWeather();
 getJSON(points.daily, function (d) {
